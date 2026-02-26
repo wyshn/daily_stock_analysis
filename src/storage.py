@@ -869,6 +869,25 @@ class DatabaseManager:
             
             return list(results), total
     
+    def get_analysis_history_by_id(self, record_id: int) -> Optional[AnalysisHistory]:
+        """
+        根据数据库主键 ID 查询单条分析历史记录
+        
+        由于 query_id 可能重复（批量分析时多条记录共享同一 query_id），
+        使用主键 ID 确保精确查询唯一记录。
+        
+        Args:
+            record_id: 分析历史记录的主键 ID
+            
+        Returns:
+            AnalysisHistory 对象，不存在返回 None
+        """
+        with self.get_session() as session:
+            result = session.execute(
+                select(AnalysisHistory).where(AnalysisHistory.id == record_id)
+            ).scalars().first()
+            return result
+    
     def get_data_range(
         self, 
         code: str, 
@@ -1175,9 +1194,23 @@ class DatabaseManager:
             
             if valid_numbers:
                 try:
-                    return float(valid_numbers[-1])
+                    return abs(float(valid_numbers[-1]))
                 except ValueError:
                     pass
+
+        # 兜底：无"元"字时（如 "102.10-103.00（MA5附近）"），
+        # 提取最后一个非 MA 前缀的数字
+        valid_numbers = []
+        for m in re.finditer(r"\d+(?:\.\d+)?", text):
+            start_idx = m.start()
+            if start_idx >= 2 and text[start_idx-2:start_idx].upper() == "MA":
+                continue
+            valid_numbers.append(m.group())
+        if valid_numbers:
+            try:
+                return float(valid_numbers[-1])
+            except ValueError:
+                pass
         return None
 
     def _extract_sniper_points(self, result: Any) -> Dict[str, Optional[float]]:
