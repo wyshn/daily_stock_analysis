@@ -8,6 +8,10 @@
 ## [Unreleased]
 
 ### 新增（#minor）
+- 🚀 **桌面端 CI 自动发布到 GitHub Releases**
+  - 新增 `.github/workflows/desktop-release.yml`
+  - 支持 Windows 安装包（exe）+ 免安装包（zip）与 macOS x64/arm64 DMG 并行构建
+  - 支持 tag 触发自动发布，以及手动指定 `release_tag` 发布
 - 📈 **盘中实时技术面**（Issue #234）
   - 技术面数据（MA5/MA10/MA20、多头排列）使用盘中实时价格计算，而非昨日收盘
   - 盘中分析时，将实时价作为虚拟 K 线追加到历史序列，重算均线与趋势判断
@@ -32,6 +36,12 @@
   - **流水线接入**：`AGENT_MODE=true` 时 pipeline 自动路由至 Agent 分析分支，向下兼容
   - **配置项**：`AGENT_MODE`、`AGENT_MAX_STEPS`、`AGENT_STRATEGY_DIR`
   - **兼容性**：`AGENT_MODE` 默认 false，不影响现有非 Agent 模式；回滚只需将 `AGENT_MODE` 设为 false
+- 💬 **聊天历史持久化**（Issue #400）
+  - `/chat` 页面支持会话历史记录，刷新或重新进入页面后可恢复之前的对话
+  - 侧边栏展示历史会话列表，支持切换、新建和删除会话（含二次确认）
+  - 后端新增 3 个 REST API：会话列表、会话消息查询、会话删除
+  - 基于已有 `conversation_messages` 表聚合，无需数据库迁移
+  - `session_id` 通过 localStorage 持久化，跨页面刷新保持会话连续性
 - ⚙️ **Agent 工具链能力增强**
   - 扩展 `analysis_tools` 与 `data_tools`，优化策略问股的工具调用链路与分析覆盖
 - 📡 **LiteLLM Proxy 接入**
@@ -41,6 +51,11 @@
   - OpenAI 兼容 API Key 长度校验放宽为 `>= 8`，支持 LiteLLM 本地开发常用短 Key
 
 ### 修复（#patch）
+- 🐛 **修复桌面端打包后 FastAPI 缺少 `python-multipart`**
+  - 现象：桌面客户端启动时报错 `Form data requires "python-multipart" to be installed`
+  - 根因：`python-multipart` 由 FastAPI 在运行时检查，且 Windows 打包脚本中 `pip` 与 `pyinstaller` 可能来自不同 Python 环境，导致 `multipart` 未被收录
+  - 修复：为后端打包流程补充 `multipart` / `multipart.multipart` 隐式导入，并统一改为 `python -m PyInstaller`（Windows / macOS 打包脚本）
+  - 兼容性：无破坏性变更，仅影响桌面端打包产物
 - 🐛 **Agent 策略渲染遗漏 framework 分类**（Issue #403）
   - 根因：`get_skill_instructions()` 仅遍历 `trend/pattern/reversal` 三个分类，`category: framework` 的 4 个策略（箱体震荡、缠论、波浪理论、情绪周期）被静默丢弃
   - 修复：补充 `framework` 分类，并增加动态回退机制，确保未来自定义分类不会遗漏
